@@ -1,0 +1,24 @@
+variable "access_log_bucket" {}
+variable "access_log_prefix" {}
+variable "container_name" {}
+variable "container_port_http" {}
+variable "container_port_https" {}
+variable "deployment_max_percent" {}
+variable "deployment_min_healthy_percent" {}
+variable "desired_count" {}
+variable "environment" {}
+variable "health_check_path" {}
+variable "instance_type" {}
+variable "max_size" {}
+variable "min_size" {}
+variable "myecrrepo" {}
+variable "name" {}
+variable "port" {}
+variable "private_subnet_ids" {}
+variable "public_subnet_ids" {}
+variable "project" {}
+variable "route53_record_name" {}
+variable "route53_zone_name" {}
+variable "ssl_certificate_arn" {}
+variable "vpc_id" {}
+

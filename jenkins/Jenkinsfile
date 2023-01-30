@@ -1,0 +1,111 @@
+pipeline {
+    agent any
+    environment {
+        delivery_service_image = "delivery-service:dev"
+        order_service_image = "order-service:dev"
+        restaurants_service_image = "restaurants-service:dev"
+        api_gateway_image = "api-gateway:dev"
+        region = "us-east-1"
+	myaccount = "919210605501"
+	ecs_cluster = "vuitest
+	myecrrepo = "microservices-workshop"
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/dashersw/microservices-workshop.git'
+            }
+        }
+        stage('Build') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+        stage('Deploy to Dev') {
+	    steps {
+                withAWS(credentials: 'aws-credentials', region: '${region}') {
+                    sh 'aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${myaccount}.dkr.ecr.${region}.amazonaws.com'
+                    if ! aws ecr describe-repositories --repository-names ${myecrrepo} --region ${region} >/dev/null 2>&1; then
+                        aws ecr create-repository --repository-name ${myecrrepo} --region ${region}
+                    fi
+                    sh 'docker-compose -f docker-compose.yml build'
+                    sh 'docker pull dockercloud/haproxy:latest && docker tag dockercloud/haproxy:latest ${myecrrepo}/dockercloud/haproxy:latest"
+                    sh 'docker push ${myecrrepo}/api-gateway:dev'
+                    sh 'docker push ${myecrrepo}/delivery-service:dev'
+                    sh 'docker push ${myecrrepo}/order-service:dev'
+                    sh 'docker push ${myecrrepo}/restaurants-service:dev'
+                    sh 'docker push ${myecrrepo}/dockercloud/haproxy:latest'
+                    sh 'terraform init && terraform plan && terraform apply -auto-approve'
+                }
+            }
+            post {
+                success {
+                    echo 'Deployment to Dev environment successful'
+                }
+                failure {
+                    echo 'Deployment to Dev environment failed'
+                    error 'Deployment to Dev environment failed'
+                }
+            }
+        }
+        stage('Deploy to Test') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+	    steps {
+                withAWS(credentials: 'aws-credentials', region: '${region}') {
+                    sh 'aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${myaccount}.dkr.ecr.${region}.amazonaws.com'
+                    sh 'docker-compose -f docker-compose.yml build'
+                    sh 'docker pull dockercloud/haproxy:latest && docker tag dockercloud/haproxy:latest ${myecrrepo}/dockercloud/haproxy:latest"
+                    sh 'docker push ${myecrrepo}/api-gateway:dev'
+                    sh 'docker push ${myecrrepo}/delivery-service:dev'
+                    sh 'docker push ${myecrrepo}/order-service:dev'
+                    sh 'docker push ${myecrrepo}/restaurants-service:dev'
+                    sh 'docker push ${myecrrepo}/dockercloud/haproxy:latest'
+                    sh 'terraform init && terraform plan && terraform apply -auto-approve'
+                }
+            }
+            post {
+                success {
+                    echo 'Deployment to Test environment successful'
+                }
+                failure {
+                    echo 'Deployment to Test environment failed'
+                    error 'Deployment to Test environment failed'
+                }
+            }
+        }
+        stage('Deploy to Prod') {
+            when {
+                expression { currentBuild.currentResult == 'SUCCESS' }
+            }
+	    steps {
+                withAWS(credentials: 'aws-credentials', region: '${region}') {
+                    sh 'aws ecr get-login-password --region ${region} | docker login --username AWS --password-stdin ${myaccount}.dkr.ecr.${region}.amazonaws.com'
+                    sh 'docker-compose -f docker-compose.prod.yml build'
+                    sh 'docker pull dockercloud/haproxy:latest && docker tag dockercloud/haproxy:latest ${myecrrepo}/dockercloud/haproxy:latest"
+                    sh 'docker push ${myecrrepo}/api-gateway:production'
+                    sh 'docker push ${myecrrepo}/delivery-service:production'
+                    sh 'docker push ${myecrrepo}/order-service:production'
+                    sh 'docker push ${myecrrepo}/restaurants-service:production'
+                    sh 'docker push ${myecrrepo}/dockercloud/haproxy:latest'
+                    sh 'terraform init && terraform plan && terraform apply -auto-approve'
+                }
+            }
+            post {
+                success {
+                    echo 'Deployment to Prod environment successful'
+                }
+                failure {
+                    echo 'Deployment to Prod environment failed'
+                    error 'Deployment to Prod environment failed'
+                }
+            }
+        }
+    }
+}
